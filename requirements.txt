@@ -1,10 +1,12 @@
-numpy
-matplotlib
+numpy==1.26.4
+pandas
 torch==2.1.0
+torchmetrics
 torchvision
 scikit-learn
 opencv-python
 Pillow
 pypng
+matplotlib
 colormap
 tqdm

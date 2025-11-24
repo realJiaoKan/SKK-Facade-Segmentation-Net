@@ -15,27 +15,6 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
 from tqdm import tqdm
 
-from dataset import FacadeDataset
-
-N_CLASS = 5
-
-
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.n_class = N_CLASS
-        self.layers = nn.Sequential(
-            #########################################
-            ###        TODO: Add more layers      ###
-            #########################################
-            nn.Conv2d(3, self.n_class, 1, padding=0),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        x = self.layers(x)
-        return x
-
 
 def save_label(label, path):
     """
