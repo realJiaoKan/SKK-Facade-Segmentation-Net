@@ -2,13 +2,10 @@ import os
 from datetime import datetime
 from uuid import uuid4
 
-import numpy as np
 import torch
 import torch.optim as optim
-from torch.optim.lr_scheduler import OneCycleLR
 
-from Networks.UNetMini import Network
-from Train.lib.criterion import get_criterion
+from Networks.UNetFT import Network
 from Train.lib.evaluation import ap_torch as ap_evaluator
 from Train.lib.train import run
 
@@ -16,27 +13,20 @@ from settings import DEVICE
 from Datasets.MiniFacade import load_loader
 
 BATCH_SIZE = 16
-NUM_EPOCHS = 100
+NUM_EPOCHS = 120
 EVAL_AFTER = 0
 NUM_RUNS = 1
 
 INPUT_SHAPE = (3, 256, 256)
 OUTPUT_SHAPE = (5, 256, 256)
 
-_DIM_BEGIN = 32
-_DIM_DEPTH = 6
-DIM = [_DIM_BEGIN * (2**i) for i in range(_DIM_DEPTH)]
 DROPOUT = 0.1
 
-CRITERION = "ce_dice"
-_RATIO = np.array([0.3548, 0.4057, 0.0236, 0.1650, 0.0509])
-# [0.72, 0.69, 2.41, 0.93, 1.74]
-CLASS_WEIGHTS = torch.tensor(np.float32(1 / np.sqrt(_RATIO))).to(DEVICE)
-DICE_WEIGHT = 0.3
-LR = 5e-4
-PCT_START = 0.09
+# CLASS_WEIGHTS = torch.tensor([0.72, 0.69, 2.41, 0.93, 1.74]).to(DEVICE)
+CLASS_WEIGHTS = torch.tensor([0.72, 0.69, 2.41, 0.93, 1.74]).to(DEVICE)
+LR = 2e-3
 
-RESULT_PATH = "Train/Results/UNetMini"
+RESULT_PATH = "Train/Results/UNetFT"
 
 if __name__ == "__main__":
     train_loader, test_loader = load_loader(BATCH_SIZE)
@@ -46,30 +36,16 @@ if __name__ == "__main__":
         print(f"=== UNetMini Run {run_id} ===")
         model = Network(
             INPUT_SHAPE,
-            OUTPUT_SHAPE[0],
-            dim=DIM,
+            OUTPUT_SHAPE,
             dropout=DROPOUT,
         ).to(DEVICE)
-        # model = torch.compile(model, mode="reduce-overhead")
         optimizer = optim.AdamW(model.parameters(), lr=LR)
-        scheduler = OneCycleLR(
-            optimizer,
-            max_lr=LR,
-            total_steps=NUM_EPOCHS * len(train_loader),
-            pct_start=PCT_START,
-            anneal_strategy="linear",
-        )
-        criterion = get_criterion(
-            name=CRITERION,
-            weight=CLASS_WEIGHTS,
-            dice_weight=DICE_WEIGHT,
-        )
+        criterion = torch.nn.CrossEntropyLoss(weight=CLASS_WEIGHTS)
         log = run(
             model,
             train_loader,
             test_loader,
             optimizer,
-            scheduler,
             criterion,
             ap_evaluator,
             NUM_EPOCHS,

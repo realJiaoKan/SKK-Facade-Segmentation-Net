@@ -4,6 +4,7 @@ torch==2.1.0
 torchmetrics
 torchvision
 scikit-learn
+einops
 opencv-python
 Pillow
 pypng

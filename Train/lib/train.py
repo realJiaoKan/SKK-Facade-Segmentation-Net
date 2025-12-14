@@ -5,7 +5,9 @@ import torch
 from settings import *
 
 
-def train_one_epoch(model, loader, optimizer, criterion, evaluator, eval_flag=True):
+def train_one_epoch(
+    model, loader, optimizer, scheduler, criterion, evaluator, eval_flag=True
+):
     model.train()
     running_loss = 0
     evaluation = 0
@@ -26,6 +28,7 @@ def train_one_epoch(model, loader, optimizer, criterion, evaluator, eval_flag=Tr
 
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
         # Loss and evaluation
         running_loss += loss.item() * y.size(0)
@@ -34,7 +37,7 @@ def train_one_epoch(model, loader, optimizer, criterion, evaluator, eval_flag=Tr
         total += y.size(0)
 
     # Train loss and train evaluation
-    if eval_flag and False:  # For lack of GPU memory, so disable train evaluation
+    if eval_flag and False:  # For lack of GPU memory, disable train evaluation
         evaluation = evaluator(
             torch.cat(outs, dim=0).float(), torch.cat(ys, dim=0).long()
         )
@@ -81,6 +84,7 @@ def run(
     train_loader,
     test_loader,
     optimizer,
+    scheduler,
     criterion,
     evaluator,
     epochs,
@@ -93,6 +97,7 @@ def run(
             model,
             train_loader,
             optimizer,
+            scheduler,
             criterion,
             evaluator,
             eval_flag=epoch / epochs >= eval_after,

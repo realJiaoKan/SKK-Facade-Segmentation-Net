@@ -7,7 +7,7 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import OneCycleLR
 
-from Networks.UNetMini import Network
+from Networks.UNetPP import Network
 from Train.lib.criterion import get_criterion
 from Train.lib.evaluation import ap_torch as ap_evaluator
 from Train.lib.train import run
@@ -23,18 +23,12 @@ NUM_RUNS = 1
 INPUT_SHAPE = (3, 256, 256)
 OUTPUT_SHAPE = (5, 256, 256)
 
-_DIM_BEGIN = 32
-_DIM_DEPTH = 6
-DIM = [_DIM_BEGIN * (2**i) for i in range(_DIM_DEPTH)]
-DROPOUT = 0.1
+DROPOUT = 0.18
 
-CRITERION = "ce_dice"
 _RATIO = np.array([0.3548, 0.4057, 0.0236, 0.1650, 0.0509])
 # [0.72, 0.69, 2.41, 0.93, 1.74]
 CLASS_WEIGHTS = torch.tensor(np.float32(1 / np.sqrt(_RATIO))).to(DEVICE)
-DICE_WEIGHT = 0.3
-LR = 5e-4
-PCT_START = 0.09
+LR = 1e-3
 
 RESULT_PATH = "Train/Results/UNetMini"
 
@@ -47,22 +41,20 @@ if __name__ == "__main__":
         model = Network(
             INPUT_SHAPE,
             OUTPUT_SHAPE[0],
-            dim=DIM,
             dropout=DROPOUT,
         ).to(DEVICE)
-        # model = torch.compile(model, mode="reduce-overhead")
         optimizer = optim.AdamW(model.parameters(), lr=LR)
         scheduler = OneCycleLR(
             optimizer,
-            max_lr=LR,
+            max_lr=1e-3,
             total_steps=NUM_EPOCHS * len(train_loader),
-            pct_start=PCT_START,
+            pct_start=0.2,
             anneal_strategy="linear",
         )
         criterion = get_criterion(
-            name=CRITERION,
+            name="ce_dice",
             weight=CLASS_WEIGHTS,
-            dice_weight=DICE_WEIGHT,
+            dice_weight=1.0,
         )
         log = run(
             model,
