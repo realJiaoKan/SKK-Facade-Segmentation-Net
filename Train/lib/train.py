@@ -1,3 +1,4 @@
+import os
 from tqdm import tqdm
 
 import torch
@@ -89,9 +90,18 @@ def run(
     evaluator,
     epochs,
     eval_after=0.8,
+    save_best_path=None,
 ):
     log = []
+    best_eval = -float("inf")
+    best_epoch = None
+
+    if save_best_path:
+        os.makedirs(os.path.dirname(save_best_path), exist_ok=True)
+
     for epoch in range(1, epochs + 1):
+        eval_ready = epoch / epochs >= eval_after
+
         # Training
         tr_loss, tr_eval = train_one_epoch(
             model,
@@ -100,7 +110,7 @@ def run(
             scheduler,
             criterion,
             evaluator,
-            eval_flag=epoch / epochs >= eval_after,
+            eval_flag=eval_ready,
         )
 
         # Evaluation
@@ -109,8 +119,28 @@ def run(
             test_loader,
             criterion,
             evaluator,
-            eval_flag=epoch / epochs >= eval_after,
+            eval_flag=eval_ready,
         )
+
+        # Save the best-performing model checkpoint based on evaluation metric
+        if eval_ready:
+            current_eval = float(np.nanmean(te_eval))
+            if save_best_path and current_eval > best_eval:
+                best_eval = current_eval
+                best_epoch = epoch
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "eval": current_eval,
+                    },
+                    save_best_path,
+                )
+                print(
+                    f"Saved new best model to {save_best_path} "
+                    f"(epoch={epoch}, eval={current_eval:.4f})"
+                )
 
         # Logging
         print(
@@ -119,4 +149,9 @@ def run(
         )
         log.append((epoch, tr_loss, tr_eval, te_loss, te_eval))
 
-    return log
+    best_meta = {
+        "best_eval": best_eval if best_epoch is not None else None,
+        "best_epoch": best_epoch,
+        "best_path": save_best_path if best_epoch is not None else None,
+    }
+    return log, best_meta
