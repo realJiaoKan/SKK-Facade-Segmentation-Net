@@ -3,23 +3,76 @@
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{subcaption}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{hyperref}
 \usepackage{geometry}
+\usepackage{listings}
 \geometry{margin=2.5cm}
+\graphicspath{{Figures/}}
 
-\title{Asymmetric Bistable Chemical Reservoir Augmented Mamba for EEG Seizure Prediction with Multimodal Fusion}
-\author{Deyi Wang, Zhiqiang Liao, Hitoshi Tabata}
-\date{November 2025}
+\title{Final Report on SKKU Facade Segmentation Net}
+\author{Deyi Wang}
+\date{December 2025}
 
 \begin{document}
 
 \maketitle
 
-\begin{abstract}
-\end{abstract}
+\input{Sections/af.tex}
 
-\input{Sections/introduction.tex}
+\section*{PS}
+
+\paragraph{Repository structure}
+To make my experiments easy to reproduce, the codebase is organized as follows:
+\begin{itemize}
+    \item \texttt{Datasets/}: dataset preprocessing and PyTorch dataloaders.
+    \item \texttt{Networks/}: model definitions (my final model is \texttt{Networks/UNetMini.py}; other variants are kept for ablation).
+    \item \texttt{Train/}: runnable training entry points and training utilities.
+    \item \texttt{Train/lib/}: training loop (\texttt{train.py}), loss functions (\texttt{criterion.py}), and evaluation metrics (\texttt{evaluation.py}).
+    \item \texttt{settings.py}: global constants such as \texttt{DEVICE}, random seed, and \texttt{N\_CLASS}.
+    \item \texttt{Train/Results/}: saved checkpoints and logs (CSV) for each run, plus a notebook to visualize curves.
+\end{itemize}
+
+\paragraph{Dataset preprocessing and caching}
+The dataset entry is \texttt{Datasets/MiniFacade.py}. It reads paired files \texttt{ee616\_\%04d.jpg} and \texttt{ee616\_\%04d.png} under \texttt{Datasets/Data/train/} and \texttt{Datasets/Data/test\_dev/} (or \texttt{Datasets/Data/test/} for the real test set), then:
+\begin{itemize}
+    \item normalizes images from uint8 $[0,255]$ to float $[-1,1]$ and changes layout from $(H,W,C)$ to $(C,H,W)$;
+    \item converts the indexed-color PNG labels into a one-hot tensor of shape $(5,H,W)$;
+    \item caches the processed arrays as \texttt{Datasets/Data/train.npz}, \texttt{Datasets/Data/test\_dev.npz} to speed up future runs (will auto-generate the \texttt{.npz} if it is missing).
+\end{itemize}
+
+\paragraph{Using the real \texttt{test} split (instead of \texttt{test\_dev})}
+By default, the dataloader uses \texttt{test\_dev} as the ``test'' split because that is the split provided to us. The switch is controlled by \texttt{FLAG\_DEV} in \texttt{Datasets/MiniFacade.py}:
+\begin{itemize}
+    \item Place the real test data under \texttt{Datasets/Data/test/}.
+    \item Ensure the file naming follows the same index convention: \texttt{ee616\_0000.jpg/.png}, \texttt{ee616\_0001.jpg/.png}, \dots, and the indices are contiguous.
+    \item Set \texttt{FLAG\_DEV=False} so \texttt{load\_dataset()} will load \texttt{test} rather than \texttt{test\_dev}.
+    \item Set \texttt{N\_SIZE["test"]} to the \emph{number of samples} in the test folder (equivalently, the maximum index + 1). This is required because \texttt{load\_raw()} iterates \texttt{range(N\_SIZE[split])}.
+\end{itemize}
+
+\paragraph{Training, evaluation, and result logging}
+My final training entry is \texttt{Train/UNetMini.py}, which wires together:
+\begin{itemize}
+    \item model: \texttt{Networks/UNetMini.Network}
+    \item data: \texttt{Datasets/MiniFacade.load\_loader} (train + test/\texttt{test\_dev})
+    \item loss: \texttt{Train/lib/criterion.get\_criterion} (default: class-weighted cross-entropy)
+    \item metric: per-class Average Precision computed in \texttt{Train/lib/evaluation.py} (selection uses mean AP over the 5 classes)
+    \item training loop: \texttt{Train/lib/train.run} with AdamW and OneCycleLR
+\end{itemize}
+Each run saves (1) a best checkpoint to \texttt{Train/Results/UNetMini/Checkpoints/} and (2) a CSV log to \texttt{Train/Results/UNetMini/} containing train/test loss and per-class AP per epoch (the plotting notebook is \texttt{Train/Results/Board.ipynb}).
+
+\paragraph{Minimal reproduction steps}
+\begin{enumerate}
+    \item Set up a Python 3.9 (3.9.25 in my setup) virtual environment.
+    \item Make sure using the root path of the repository as the Python working directory (except for notebooks), I recommend to us \texttt{"PYTHONPATH": "\${workspaceFolder}"} to set it using vscode. You can check \texttt{.vscode} folder for an example, which is included in the repository.
+    \item Install dependencies: \texttt{pip install -r requirements.txt}.
+    \item Put the dataset under \texttt{Datasets/Data/train/} and \texttt{Datasets/Data/test\_dev/} (or \texttt{test/} if available) following the naming convention described above.
+    \item Run training: \texttt{python Train/UNetMini.py}. Results are written under \texttt{Train/Results/UNetMini/}.
+    \item Visualize curves with \texttt{Train/Results/Board.ipynb}, and run qualitative inference with \texttt{demo.ipynb}.
+\end{enumerate}
 
 \end{document}

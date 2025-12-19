@@ -1,2 +1,7 @@
 % !TEX root = ../main.tex
 \section{Introduction}
+
+This project trains a convolutional neural network (CNN) for semantic segmentation on the Mini Facade dataset. Each input is an RGB facade image and the output is a dense per-pixel label map with 5 classes: others (0), facade (1), pillar (2), window (3), and balcony (4).
+
+\paragraph{Data preprocessing.}
+I use the provided indexed-color PNG labels and preprocess the raw data into compressed NumPy archives (see \texttt{Datasets/MiniFacade.py}). Input images are normalized from uint8 $[0,255]$ to float $[-1,1]$ and transposed from $(H,W,C)$ to $(C,H,W)$. Labels are stored as one-hot tensors of shape $(5,H,W)$.
